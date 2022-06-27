@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<script type="text/javascript">
+
+window.addEventListener('DOMContentLoaded', () => {
+
+// Ничего, кроме функции ниже, не заслуживает внимания
+const calulateAngle = ({ x1, x2, y1, y2, width: widthDim, height: heightDim }) => {
+	const gradientHandlePositions = [
+        {
+          x: x1,
+          y: y1
+        },
+        {
+          x: x2,
+          y: y2
+        }
+	];
+
+	const dim = [widthDim, heightDim];
+
+	const [p1, p2] = gradientHandlePositions;
+	const [width, height] = dim;
+
+	const x_ratio = width > height ? width / height : 1;
+	const y_ratio = height > width ? height / width : 1;
+
+	const x = (p2.x - p1.x) * (x_ratio ** 2);
+	const y = (p2.y - p1.y) * (y_ratio ** 2);
+
+	const angle = Number(((Math.atan2(y, x) * (180 / Math.PI)) + 90).toFixed(2));
+
+	return angle;
+}
+
+const angleLabel = document.getElementById("angle");
+const widthInput = document.getElementById("width");
+const heightInput = document.getElementById("height");
+const x1Input = document.getElementById("x1");
+const x2Input = document.getElementById("x2");
+const y1Input = document.getElementById("y1");
+const y2Input = document.getElementById("y2");
+
+const box = document.querySelector('.box');
+const point1 = document.querySelector('.point1');
+const point2 = document.querySelector('.point2');
+
+
+let { top: boxTop, left: boxLeft } = box.getBoundingClientRect();
+
+(function init() {
+	parseParams();
+
+	widthInput.addEventListener('keydown', setParams);
+	heightInput.addEventListener('keydown', setParams);
+	x1Input.addEventListener('keydown', setParams);
+	x2Input.addEventListener('keydown', setParams);
+	y1Input.addEventListener('keydown', setParams);
+	y2Input.addEventListener('keydown', setParams);
+
+	initDrag();
+})();
+
+function parseParams () {
+	const params = (new URLSearchParams(window.location.search));
+
+	let width = parseFloat(params.get('width'));
+	let height = parseFloat(params.get('height'));
+	let x1 = parseFloat(params.get('x1'));
+	let x2 = parseFloat(params.get('x2'));
+	let y1 = parseFloat(params.get('y1'));
+	let y2 = parseFloat(params.get('y2'));
+
+	width = isNaN(width) ? 200 : width;
+	height = isNaN(height) ? 200 : height;
+	x1 = isNaN(x1) ? 0 : x1;
+	x2 = isNaN(x2) ? 1 : x2;
+	y1 = isNaN(y1) ? 0 : y1;
+	y2 = isNaN(y2) ? 1 : y2;
+
+	widthInput.value = width;
+	heightInput.value = height;
+	x1Input.value = x1;
+	x2Input.value = x2;
+	y1Input.value = y1;
+	y2Input.value = y2;
+
+	const left1 = width*x1;
+	const left2 = width*x2;
+	const top1 = height*y1;
+	const top2 = height*y2;
+
+	point1.style.cssText = `top: ${top1}px; left: ${left1}px;`;
+	point2.style.cssText = `top: ${top2}px; left: ${left2}px;`;
+
+	drawGradient({ x1, x2, y1, y2, width, height });
+}
+
+function drawGradient (params) {
+	const angle = calulateAngle(params);
+	const { width, height } = params;
+	box.style.cssText = `width: ${width}px; height: ${height}px; background: linear-gradient(${angle}deg, #0000FF 0%, rgba(255, 0, 0, 0) 100%);`;
+	angleLabel.innerText = angle.toFixed(2);
+}
+
+function setParams ({ force, keyCode }) {
+	// 0-9, enter стрелки вверх и вниз
+	if (force !== true && !(
+		keyCode >= 48 && keyCode <= 57 
+		|| keyCode == 13
+		|| keyCode == 40
+		|| keyCode == 38
+	)) {
+		return;
+	}
+	const
+		width = widthInput.value,
+		height = heightInput.value,
+		x1 = x1Input.value,
+		x2 = x2Input.value,
+		y1 = y1Input.value,
+		y2 = y2Input.value;
+
+	const url = new URL(window.location.href);
+
+
+	url.searchParams.delete("width");
+	url.searchParams.delete("height");
+	url.searchParams.delete("x1");
+	url.searchParams.delete("x2");
+	url.searchParams.delete("y1");
+	url.searchParams.delete("y2");
+
+	url.searchParams.set("width", width);
+	url.searchParams.set("height", height);
+	url.searchParams.set("x1", x1);
+	url.searchParams.set("x2", x2);
+	url.searchParams.set("y1", y1);
+	url.searchParams.set("y2", y2);
+	url.searchParams.delete('param2');
+	window.history.replaceState(null, null, url); 
+
+	parseParams();
+}
+
+function initDrag() {
+	let dragEnabled = false;
+
+	const draggables = [point1, point2];
+	let currentDraggable = null;
+
+	window.addEventListener('mousedown', (e) => {
+		if (!draggables.includes(e.target)){
+			return;
+		}
+		currentDraggable = e.target;
+	});
+
+
+	window.addEventListener('mousemove', ({ clientX, clientY }) => {
+		if (!currentDraggable) {
+			return;
+		}
+
+		const width = parseInt(widthInput.value);
+		const height = parseInt(heightInput.value);
+
+		const bounds = {
+			x: [0, width],
+			y: [0, height]
+		}
+
+		let x = clientX - boxLeft;
+		let y = clientY - boxTop;
+
+		if (x < bounds.x[0]) {
+			x = bounds.x[0];
+		}
+
+		if (x > bounds.x[1]) {
+			x = bounds.x[1];
+		}
+
+		if (y < bounds.y[0]) {
+			y = bounds.y[0];
+		}
+
+		if (y > bounds.y[1]) {
+			y = bounds.y[1];
+		}
+
+		currentDraggable.style.cssText = `top: ${y}px; left: ${x}px;`;
+
+		if (currentDraggable === point1) {
+			x1Input.value = (x / width).toFixed(2);
+			y1Input.value = (y / height).toFixed(2);			
+		} else if (currentDraggable === point2) {
+			x2Input.value = (x / width).toFixed(2);
+			y2Input.value = (y / height).toFixed(2);			
+		}
+
+		const
+			x1 = x1Input.value,
+			x2 = x2Input.value,
+			y1 = y1Input.value,
+			y2 = y2Input.value;
+
+		drawGradient({ x1, x2, y1, y2, width, height });
+	});
+
+	const stopDrag = () => {
+		currentDraggable = null;
+		setParams({ force: true });
+	}
+	window.addEventListener('mouseup', stopDrag);
+	window.addEventListener('onblur', stopDrag);
+}
+
+});
+
+</script>
+<style type="text/css">
+	body {
+		padding: 90px;
+		display: flex;
+		flex-flow: row;
+		justify-content: flex-start;
+		grid-gap: 16px;
+	}
+
+	.inputs {
+		background-color: lightgray;
+		display: flex;
+		flex-flow: column;
+		grid-gap: 8px;
+		padding: 8px;
+		user-select: none;
+	}
+
+	.box {
+		position: relative;
+		width: 200px;
+		height: 200px;
+	}
+
+	.boxWrap {
+		padding: 2px;
+	}
+
+	.box__borders{
+		position: absolute;
+		border: 4px solid black;
+		top: -2px;
+		left: -2px;
+		width: calc(100% + 4px);
+		height: calc(100% + 4px);
+		box-sizing: border-box;
+	}
+
+	.point {
+		width: 16px;
+		height: 16px;
+		position: absolute;
+		top: 0;
+		left: 0;
+		margin: -8px 0 0 -8px;
+
+		border-radius: 100%;
+		background-color: red;
+		cursor: pointer;
+	}
+</style>
+<body>
+	<div class="inputs">
+		<label>Параметры</label>
+		<table>
+			<tr>
+				<td colspan="2"><label>Width</label></td>
+				<td colspan="2"><input id="width" type="number" min="100" max="500" step="1"/></td>
+			</tr>
+
+			<tr>
+				<td colspan="2"><label>Height</label></td>
+				<td colspan="2"><input id="height" type="number" min="100" max="500" step="1"/></td>
+			</tr>
+			<tr>
+				<td><label>x<sub>1</sub></label></td>
+				<td><input id="x1" type="number" min="0"max="1" step="0.01"/></td>
+
+				<td><label>&nbsp;&nbsp;&nbsp;y<sub>1</sub></label></td>
+				<td><input id="y1" type="number" min="0"max="1" step="0.01"/></td>
+			</tr>			
+			<tr>
+				<td><label>x<sub>2</sub></label></td>
+				<td><input id="x2" type="number" min="0"max="1" step="0.01"/></td>
+
+				<td><label>&nbsp;&nbsp;&nbsp;y<sub>2</sub></label></td>
+				<td><input id="y2"type="number" min="0"max="1" step="0.01"/></td>
+			</tr>
+		</table>
+		<div class="angle">
+			<label>Итого: </label><label id="angle"></label><label>°</label>
+		</div>
+	</div>
+
+	<div class="boxWrap">
+		<div class="box">
+			<div class="box__borders"></div>
+			<div class="point point1"></div>
+			<div class="point point2"></div>
+		</div>
+	</div>
+</body>
+</html>
