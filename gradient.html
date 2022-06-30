@@ -9,16 +9,16 @@
 window.addEventListener('DOMContentLoaded', () => {
 
 // Ничего, кроме функции ниже, не заслуживает внимания
-const calulateAngle = ({ x1, x2, y1, y2, width: widthDim, height: heightDim }) => {
+let calulateAngle = ({ x1, x2, y1, y2, width: widthDim, height: heightDim }) => {
 	const gradientHandlePositions = [
-        {
-          x: x1,
-          y: y1
-        },
-        {
-          x: x2,
-          y: y2
-        }
+		{
+			x: x1,
+			y: y1
+		},
+		{
+			x: x2,
+			y: y2
+		}
 	];
 
 	const dim = [widthDim, heightDim];
@@ -37,22 +37,23 @@ const calulateAngle = ({ x1, x2, y1, y2, width: widthDim, height: heightDim }) =
 	return angle;
 }
 
-const angleLabel = document.getElementById("angle");
-const widthInput = document.getElementById("width");
-const heightInput = document.getElementById("height");
-const x1Input = document.getElementById("x1");
-const x2Input = document.getElementById("x2");
-const y1Input = document.getElementById("y1");
-const y2Input = document.getElementById("y2");
+const angleLabel = document.getElementById('angle');
+const widthInput = document.getElementById('width');
+const heightInput = document.getElementById('height');
+const x1Input = document.getElementById('x1');
+const x2Input = document.getElementById('x2');
+const y1Input = document.getElementById('y1');
+const y2Input = document.getElementById('y2');
 
 const box = document.querySelector('.box');
 const point1 = document.querySelector('.point1');
 const point2 = document.querySelector('.point2');
+const gradientLine = document.querySelector('#gradientLine');
 
 
 let { top: boxTop, left: boxLeft } = box.getBoundingClientRect();
 
-(function init() {
+(function init () {
 	parseParams();
 
 	widthInput.addEventListener('keydown', setParams);
@@ -63,6 +64,7 @@ let { top: boxTop, left: boxLeft } = box.getBoundingClientRect();
 	y2Input.addEventListener('keydown', setParams);
 
 	initDrag();
+	initTextArea();
 })();
 
 function parseParams () {
@@ -101,10 +103,28 @@ function parseParams () {
 }
 
 function drawGradient (params) {
-	const angle = calulateAngle(params);
+	const angle = calulateAngle(params) || 0;
 	const { width, height } = params;
 	box.style.cssText = `width: ${width}px; height: ${height}px; background: linear-gradient(${angle}deg, #0000FF 0%, rgba(255, 0, 0, 0) 100%);`;
 	angleLabel.innerText = angle.toFixed(2);
+	gradientLine.style.cssText=`transform: rotate(${angle - 90}deg); width: ${calulateGradientLineWidth()}px`;
+}
+
+function calulateGradientLineWidth () {
+	// DRY
+	const width = parseFloat(widthInput.value);
+	const height = parseFloat(heightInput.value);
+	const x1 = parseFloat(x1Input.value);
+	const x2 = parseFloat(x2Input.value);
+	const y1 = parseFloat(y1Input.value);
+	const y2 = parseFloat(y2Input.value);
+
+	const left1 = width*x1;
+	const left2 = width*x2;
+	const top1 = height*y1;
+	const top2 = height*y2;
+
+	return Math.sqrt((left2-left1)**2 + (top2-top1)**2);
 }
 
 function setParams ({ force, keyCode }) {
@@ -128,26 +148,26 @@ function setParams ({ force, keyCode }) {
 	const url = new URL(window.location.href);
 
 
-	url.searchParams.delete("width");
-	url.searchParams.delete("height");
-	url.searchParams.delete("x1");
-	url.searchParams.delete("x2");
-	url.searchParams.delete("y1");
-	url.searchParams.delete("y2");
+	url.searchParams.delete('width');
+	url.searchParams.delete('height');
+	url.searchParams.delete('x1');
+	url.searchParams.delete('x2');
+	url.searchParams.delete('y1');
+	url.searchParams.delete('y2');
 
-	url.searchParams.set("width", width);
-	url.searchParams.set("height", height);
-	url.searchParams.set("x1", x1);
-	url.searchParams.set("x2", x2);
-	url.searchParams.set("y1", y1);
-	url.searchParams.set("y2", y2);
+	url.searchParams.set('width', width);
+	url.searchParams.set('height', height);
+	url.searchParams.set('x1', x1);
+	url.searchParams.set('x2', x2);
+	url.searchParams.set('y1', y1);
+	url.searchParams.set('y2', y2);
 	url.searchParams.delete('param2');
 	window.history.replaceState(null, null, url); 
 
 	parseParams();
 }
 
-function initDrag() {
+function initDrag () {
 	let dragEnabled = false;
 
 	const draggables = [point1, point2];
@@ -220,6 +240,28 @@ function initDrag() {
 	window.addEventListener('onblur', stopDrag);
 }
 
+function initTextArea () {
+	const textArea = document.getElementById('codeTextarea');
+	let code;
+	const calulateAngleOriginal = calulateAngle;
+
+	calulateAngle = ({ x1, x2, y1, y2, width: widthDim, height: heightDim }) => {
+		if (code) {
+			return eval(`(${code})({ x1, x2, y1, y2, width: widthDim, height: heightDim })`);
+			return 0;
+		}
+
+		calulateAngleOriginal({ x1, x2, y1, y2, width: widthDim, height: heightDim });
+	}
+
+	code = calulateAngleOriginal.toString();
+	textArea.value = code;
+
+	textArea.addEventListener('change', (e) => {
+		code = e.target.value;
+	})
+}
+
 });
 
 </script>
@@ -230,6 +272,7 @@ function initDrag() {
 		flex-flow: row;
 		justify-content: flex-start;
 		grid-gap: 16px;
+		flex-wrap: wrap;
 	}
 
 	.inputs {
@@ -273,16 +316,40 @@ function initDrag() {
 		background-color: red;
 		cursor: pointer;
 	}
+
+	.gradientLine {
+		position: absolute;
+		width: 200px;
+		height: 0px;
+		border: 1px solid red;
+		left: 8px;
+		top: 8px;
+		margin-left: -1px;
+		margin-top: -1px;
+		transform: rotate(90deg);
+	    transform-origin: 1px 1px;
+	    pointer-events: none;
+	}
+
+	.codeWrap {
+		width: 100%;
+	}
+
+	.codeTextarea {
+		width: 700px;
+		height: 500px;
+		padding: 8px;
+		box-sizing: border-box;
+	}
 </style>
 <body>
 	<div class="inputs">
-		<label>Параметры</label>
+		<label>Variables</label>
 		<table>
 			<tr>
 				<td colspan="2"><label>Width</label></td>
 				<td colspan="2"><input id="width" type="number" min="100" max="500" step="1"/></td>
 			</tr>
-
 			<tr>
 				<td colspan="2"><label>Height</label></td>
 				<td colspan="2"><input id="height" type="number" min="100" max="500" step="1"/></td>
@@ -303,16 +370,20 @@ function initDrag() {
 			</tr>
 		</table>
 		<div class="angle">
-			<label>Итого: </label><label id="angle"></label><label>°</label>
+			<label>Angle: </label><label id="angle"></label><label>°</label>
 		</div>
 	</div>
-
 	<div class="boxWrap">
 		<div class="box">
 			<div class="box__borders"></div>
-			<div class="point point1"></div>
-			<div class="point point2"></div>
+			<div class="point point1" draggable="false">
+				<div class="gradientLine" id="gradientLine"></div>
+			</div>
+			<div class="point point2" draggable="false"></div>
 		</div>
+	</div>
+	<div class="codeWrap">
+		<textarea class="codeTextarea" id="codeTextarea"></textarea>
 	</div>
 </body>
 </html>
